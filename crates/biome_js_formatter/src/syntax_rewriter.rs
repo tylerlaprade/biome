@@ -7,8 +7,8 @@ use biome_js_syntax::{
 };
 use biome_rowan::syntax::SyntaxTrivia;
 use biome_rowan::{
-    chain_trivia_pieces, AstNode, SyntaxKind, SyntaxRewriter, SyntaxToken, TextSize,
-    VisitNodeSignal,
+    chain_trivia_pieces, AstNode, SyntaxKind, SyntaxNodeOptionExt, SyntaxRewriter, SyntaxToken,
+    TextSize, VisitNodeSignal,
 };
 use std::collections::BTreeSet;
 
@@ -149,9 +149,18 @@ impl JsFormatSyntaxRewriter {
                     || has_type_cast_comment_or_skipped(&l_paren.leading_trivia())
                     || prev_token.map_or(false, |prev_token| has_type_cast_comment_or_skipped(&prev_token.trailing_trivia()))
                     || r_paren.leading_trivia().has_skipped()
-                    // Don't remove parentheses if it is an optional chain inside a chain that doesn't start by an optional token
-                    // (a?.b).c
-                    || (parenthesized.syntax().parent().and_then(AnyJsOptionalChainExpression::cast).is_some_and(|chain| chain.optional_chain_token().is_none()) && AnyJsOptionalChainExpression::cast_ref(&inner).is_some_and(|x| x.is_optional_chain()))
+                    || (
+                        // If this is a parenthesized optional chain
+                        AnyJsOptionalChainExpression::cast_ref(&inner).is_some_and(|x| x.is_optional_chain())
+                        && (
+                            // If the parenthesized expression is in a non-null assertion expression
+                            // e.g. `(a?.b)!.c`
+                            parenthesized.syntax().parent().kind() == Some(JsSyntaxKind::TS_NON_NULL_ASSERTION_EXPRESSION)
+                            // or if the parenthesized expression is inside a chain that starts by an optional token
+                            // e.g. (a?.b)?.c
+                            || parenthesized.syntax().parent().and_then(AnyJsOptionalChainExpression::cast).is_some_and(|chain| chain.optional_chain_token().is_none())
+                        )
+                    )
                 {
                     return VisitNodeSignal::Traverse(parenthesized.into_syntax());
                 } else {
