@@ -411,6 +411,7 @@ dependencies = [
  "crossbeam",
  "directories",
  "indexmap",
+ "lazy_static",
  "parking_lot",
  "rayon",
  "rustc-hash",

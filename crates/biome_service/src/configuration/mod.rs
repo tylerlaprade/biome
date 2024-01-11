@@ -29,7 +29,7 @@ use biome_console::markup;
 use biome_deserialize::json::deserialize_from_json_str;
 use biome_deserialize::{Deserialized, StringSet};
 use biome_diagnostics::{DiagnosticExt, Error, Severity};
-use biome_fs::{AutoSearchResult, FileSystem, OpenOptions};
+use biome_fs::{AutoSearchResult, ConfigName, FileSystem, OpenOptions};
 use biome_js_analyze::metadata;
 use biome_json_formatter::context::JsonFormatOptions;
 use biome_json_parser::{parse_json, JsonParserOptions};
@@ -234,7 +234,7 @@ impl Configuration {
             if let Some(client_kind) = &vcs.client_kind {
                 if !vcs.ignore_file_disabled() {
                     let result = file_system
-                        .auto_search(vcs_base_path, client_kind.ignore_file(), false)
+                        .auto_search(vcs_base_path, [client_kind.ignore_file()].as_slice(), false)
                         .map_err(WorkspaceError::from)?;
 
                     if let Some(result) = result {
@@ -581,7 +581,6 @@ fn load_config(
     file_system: &DynRef<'_, dyn FileSystem>,
     base_path: ConfigurationBasePath,
 ) -> LoadConfig {
-    let config_name = file_system.config_name();
     let deprecated_config_name = file_system.deprecated_config_name();
     let working_directory = file_system.working_directory();
     let configuration_directory = match base_path {
@@ -596,13 +595,16 @@ fn load_config(
     let should_error = base_path.is_from_user();
 
     let auto_search_result;
-    let result =
-        file_system.auto_search(configuration_directory.clone(), config_name, should_error);
+    let result = file_system.auto_search(
+        configuration_directory.clone(),
+        ConfigName::file_names().as_slice(),
+        should_error,
+    );
     if let Ok(result) = result {
         if result.is_none() {
             auto_search_result = file_system.auto_search(
                 configuration_directory.clone(),
-                deprecated_config_name,
+                [deprecated_config_name].as_slice(),
                 should_error,
             )?;
         } else {
@@ -611,7 +613,7 @@ fn load_config(
     } else {
         auto_search_result = file_system.auto_search(
             configuration_directory.clone(),
-            deprecated_config_name,
+            [deprecated_config_name].as_slice(),
             should_error,
         )?;
     }
@@ -645,7 +647,7 @@ pub fn create_config(
     fs: &mut DynRef<dyn FileSystem>,
     mut configuration: Configuration,
 ) -> Result<(), WorkspaceError> {
-    let path = PathBuf::from(fs.config_name());
+    let path = PathBuf::from(ConfigName::biome_json());
 
     let options = OpenOptions::default().write(true).create_new(true);
 
