@@ -1,5 +1,6 @@
 use biome_analyze::{
     context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
+    RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -20,8 +21,6 @@ declare_rule! {
     ///
     /// JavaScript provides shorthand operators combining a variable assignment and simple mathematical operation.
     ///
-    /// Source: https://eslint.org/docs/latest/rules/operator-assignment/
-    ///
     /// ## Examples
     ///
     /// ### Invalid
@@ -38,7 +37,7 @@ declare_rule! {
     /// a = a * 1;
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// a += 1;
@@ -54,6 +53,7 @@ declare_rule! {
     pub(crate) UseShorthandAssign {
         version: "1.3.0",
         name: "useShorthandAssign",
+        source: RuleSource::Eslint("operator-assignment"),
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }

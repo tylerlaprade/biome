@@ -21,10 +21,6 @@ We can use help in a bunch of areas and any help is greatly appreciated!
         - [`cargo codegen test`](#cargo-codegen-test)
         - [`cargo codegen analyzer`](#cargo-codegen-analyzer)
     - [crate dependencies](#crate-dependencies)
-  - [Intellij plugin development](#intellij-plugin-development)
-    - [Running the plugin on IDEA](#running-the-plugin-on-idea)
-    - [Build the plugin](#build-the-plugin)
-    - [UI Testing intellij plugin](#ui-testing-intellij-plugin)
   - [Node.js development](#nodejs-development)
   - [Website development](#website-development)
     - [Translations](#translations)
@@ -187,37 +183,6 @@ This command will detect linter rules declared in the `analyzers`, `assists` and
 [Workspace dependencies](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-dependencies-table) are used, and many dependencies are defined in Cargo.toml in the root.
 
 Internal crates are loaded with `workspace = true` for each crate. About `dev-dependencies`, we use [path dependencies](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-path-dependencies) to avoid requiring the published version of these crates.
-
-## Intellij plugin development
-
-To start development from source, navigate to the `editors/intellij` directory.
-
-Build and run the plugin requires:
-
-- Java development kit 17+
-- IntelliJ IDEA Ultimate edition
-
-### Running the plugin on IDEA
-
-```bash
-./gradlew runIde
-```
-
-### Build the plugin
-
-```bash
-./gradlew buildPlugin
-```
-
-### UI Testing intellij plugin
-
-Before start testing the plugin you will need to start IDE by invoking the `./gradlew runIdeForUiTests &` and wait IDE startup
-
-You can now run the test task:
-
-```bash
-./gradlew test
-```
 
 ## Node.js development
 
@@ -408,10 +373,12 @@ Members are listed in alphabetical order. Members are free to use the full name,
 - [Denis Bezrukov @denbezrukov](https://github.com/denbezrukov)
 - [Hiroki Ihoriya @unvalley](https://github.com/unvalley)
 - [Jon Egeland @faultyserver](https://github.com/faultyserver)
+- [Nicolas Hedger @nhedger](https://github.com/nhedger)
 
 ### Maintainers team
 
+- [Arend van Beelen @arendjr](https://github.com/arendjr)
 - [Madeline Gurriarán @SuperchupuDev](https://github.com/SuperchupuDev)
-- [Nicolas Hedger @nhedger](https://github.com/nhedger)
-- [Victor Teles @victor-teles](https://github.com/victor-teles)
 - [Takayuki Maeda @TaKO8Ki](https://github.com/TaKO8Ki)
+- [Vasu Singh @vasucp1207](https://github.com/vasucp1207)
+- [Victor Teles @victor-teles](https://github.com/victor-teles)

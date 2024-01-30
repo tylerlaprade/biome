@@ -2,12 +2,14 @@ use crate::changed::get_changed_files;
 use crate::cli_options::CliOptions;
 use crate::commands::validate_configuration_diagnostics;
 use crate::{execute_mode, setup_cli_subscriber, CliDiagnostic, CliSession, Execution};
-use biome_service::configuration::organize_imports::OrganizeImports;
+use biome_deserialize::Merge;
+use biome_service::configuration::organize_imports::PartialOrganizeImports;
 use biome_service::configuration::{
-    load_configuration, FormatterConfiguration, LinterConfiguration, LoadedConfiguration,
+    load_configuration, LoadedConfiguration, PartialFormatterConfiguration,
+    PartialLinterConfiguration,
 };
 use biome_service::workspace::UpdateSettingsParams;
-use biome_service::{Configuration, MergeWith};
+use biome_service::PartialConfiguration;
 use std::ffi::OsString;
 
 pub(crate) struct CiCommandPayload {
@@ -15,7 +17,7 @@ pub(crate) struct CiCommandPayload {
     pub(crate) linter_enabled: Option<bool>,
     pub(crate) organize_imports_enabled: Option<bool>,
     pub(crate) paths: Vec<OsString>,
-    pub(crate) rome_configuration: Configuration,
+    pub(crate) configuration: PartialConfiguration,
     pub(crate) cli_options: CliOptions,
     pub(crate) changed: bool,
     pub(crate) since: Option<String>,
@@ -46,7 +48,7 @@ pub(crate) fn ci(session: CliSession, mut payload: CiCommandPayload) -> Result<(
     } = loaded_configuration;
     let formatter = configuration
         .formatter
-        .get_or_insert_with(FormatterConfiguration::default);
+        .get_or_insert_with(PartialFormatterConfiguration::default);
 
     if payload.formatter_enabled.is_some() {
         formatter.enabled = payload.formatter_enabled;
@@ -54,7 +56,7 @@ pub(crate) fn ci(session: CliSession, mut payload: CiCommandPayload) -> Result<(
 
     let linter = configuration
         .linter
-        .get_or_insert_with(LinterConfiguration::default);
+        .get_or_insert_with(PartialLinterConfiguration::default);
 
     if payload.linter_enabled.is_some() {
         linter.enabled = payload.linter_enabled;
@@ -62,7 +64,7 @@ pub(crate) fn ci(session: CliSession, mut payload: CiCommandPayload) -> Result<(
 
     let organize_imports = configuration
         .organize_imports
-        .get_or_insert_with(OrganizeImports::default);
+        .get_or_insert_with(PartialOrganizeImports::default);
 
     if payload.organize_imports_enabled.is_some() {
         organize_imports.enabled = payload.organize_imports_enabled;
@@ -76,16 +78,7 @@ pub(crate) fn ci(session: CliSession, mut payload: CiCommandPayload) -> Result<(
         return Err(CliDiagnostic::incompatible_end_configuration("Formatter, linter and organize imports are disabled, can't perform the command. This is probably and error."));
     }
 
-    configuration.merge_with(payload.rome_configuration.files);
-    configuration.merge_with(payload.rome_configuration.vcs);
-    configuration.merge_with_if(
-        payload.rome_configuration.formatter,
-        !configuration.is_formatter_disabled(),
-    );
-    configuration.merge_with_if(
-        payload.rome_configuration.organize_imports,
-        !configuration.is_organize_imports_disabled(),
-    );
+    configuration.merge_with(payload.configuration);
 
     // check if support of git ignore files is enabled
     let vcs_base_path = configuration_path.or(session.app.fs.working_directory());

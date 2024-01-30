@@ -1,12 +1,9 @@
 use biome_analyze::{
     context::RuleContext, declare_rule, AddVisitor, Phases, QueryMatch, Queryable, Rule,
-    RuleDiagnostic, ServiceBag, Visitor, VisitorContext,
+    RuleDiagnostic, RuleSource, ServiceBag, Visitor, VisitorContext,
 };
 use biome_console::markup;
-use biome_deserialize::{
-    Deserializable, DeserializableValue, DeserializationDiagnostic, DeserializationVisitor, Text,
-    VisitableType,
-};
+use biome_deserialize_macros::Deserializable;
 use biome_js_syntax::{
     AnyFunctionLike, JsBreakStatement, JsContinueStatement, JsElseClause, JsLanguage,
     JsLogicalExpression, JsLogicalOperator,
@@ -35,11 +32,7 @@ declare_rule! {
     /// those that exceed a configured complexity threshold (default: 15).
     ///
     /// The complexity score is calculated based on the Cognitive Complexity
-    /// algorithm: http://redirect.sonarsource.com/doc/cognitive-complexity.html
-    ///
-    /// Source:
-    ///
-    /// * https://github.com/SonarSource/eslint-plugin-sonarjs/blob/HEAD/docs/rules/cognitive-complexity.md
+    /// algorithm: https://redirect.sonarsource.com/doc/cognitive-complexity.html
     ///
     /// ## Examples
     ///
@@ -79,6 +72,7 @@ declare_rule! {
     pub(crate) NoExcessiveCognitiveComplexity {
         version: "1.0.0",
         name: "noExcessiveCognitiveComplexity",
+        source: RuleSource::EslintSonarJs("cognitive-complexity"),
         recommended: false,
     }
 }
@@ -371,7 +365,7 @@ pub struct ComplexityScore {
 }
 
 /// Options for the rule `noExcessiveCognitiveComplexity`.
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Clone, Debug, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema", derive(JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ComplexityOptions {
@@ -384,51 +378,5 @@ impl Default for ComplexityOptions {
         Self {
             max_allowed_complexity: NonZeroU8::new(15).unwrap(),
         }
-    }
-}
-
-impl Deserializable for ComplexityOptions {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        value.deserialize(ComplexityOptionsVisitor, name, diagnostics)
-    }
-}
-
-struct ComplexityOptionsVisitor;
-impl DeserializationVisitor for ComplexityOptionsVisitor {
-    type Output = ComplexityOptions;
-
-    const EXPECTED_TYPE: VisitableType = VisitableType::MAP;
-
-    fn visit_map(
-        self,
-        members: impl Iterator<Item = Option<(impl DeserializableValue, impl DeserializableValue)>>,
-        _range: TextRange,
-        _name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self::Output> {
-        const ALLOWED_KEYS: &[&str] = &["maxAllowedComplexity"];
-        let mut result = Self::Output::default();
-        for (key, value) in members.flatten() {
-            let Some(key_text) = Text::deserialize(&key, "", diagnostics) else {
-                continue;
-            };
-            match key_text.text() {
-                "maxAllowedComplexity" => {
-                    if let Some(val) = Deserializable::deserialize(&value, &key_text, diagnostics) {
-                        result.max_allowed_complexity = val;
-                    }
-                }
-                text => diagnostics.push(DeserializationDiagnostic::new_unknown_key(
-                    text,
-                    key.range(),
-                    ALLOWED_KEYS,
-                )),
-            }
-        }
-        Some(result)
     }
 }

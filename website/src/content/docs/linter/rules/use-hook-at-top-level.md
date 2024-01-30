@@ -4,6 +4,8 @@ title: useHookAtTopLevel (since v1.0.0)
 
 **Diagnostic Category: `lint/correctness/useHookAtTopLevel`**
 
+Source: <a href="https://github.com/facebook/react/blob/main/packages/eslint-plugin-react-hooks/README.md" target="_blank"><code>rules-of-hooks</code></a>
+
 Enforce that all React hooks are being called from the Top Level component functions.
 
 To understand why this required see https://reactjs.org/docs/hooks-rules.html#only-call-hooks-at-the-top-level
@@ -74,7 +76,7 @@ function Component1({ a }) {
   
 </code></pre>
 
-## Valid
+### Valid
 
 ```jsx
 function Component1() {

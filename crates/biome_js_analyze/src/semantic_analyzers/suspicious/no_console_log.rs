@@ -1,6 +1,7 @@
 use crate::{semantic_services::Semantic, JsRuleAction};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    RuleSourceKind,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -18,7 +19,7 @@ declare_rule! {
     /// console.log()
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// console.info("info");
@@ -33,6 +34,8 @@ declare_rule! {
     pub(crate) NoConsoleLog {
         version: "1.0.0",
         name: "noConsoleLog",
+        source: RuleSource::Eslint("no-console"),
+        source_kind: RuleSourceKind::Inspired,
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }

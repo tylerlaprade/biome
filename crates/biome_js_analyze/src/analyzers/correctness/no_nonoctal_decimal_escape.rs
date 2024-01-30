@@ -1,6 +1,7 @@
 use crate::JsRuleAction;
 use biome_analyze::{
     context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
+    RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -26,8 +27,6 @@ declare_rule! {
     /// However, web browsers are still required to support it, but only in non-strict mode.
     /// Regardless of your targeted environment, it is recommended to avoid using these escape sequences in new code.
     ///
-    /// Source: https://eslint.org/docs/latest/rules/no-nonoctal-decimal-escape
-    ///
     /// ## Examples
     ///
     /// ### Invalid
@@ -44,7 +43,7 @@ declare_rule! {
     /// const x = "Don't use \9 escape.";
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// const x = "8";
@@ -57,6 +56,7 @@ declare_rule! {
     pub(crate) NoNonoctalDecimalEscape {
         version: "1.0.0",
         name: "noNonoctalDecimalEscape",
+        source: RuleSource::Eslint("no-nonoctal-decimal-escape"),
         recommended: true,
         fix_kind: FixKind::Unsafe,
     }

@@ -1,16 +1,20 @@
+use super::javascript::PartialJavascriptConfiguration;
+use super::json::PartialJsonConfiguration;
+use super::PartialCssConfiguration;
 use crate::configuration::formatter::{deserialize_line_width, serialize_line_width};
 use crate::configuration::{
-    css_configuration, javascript_configuration, json_configuration, CssConfiguration,
-    JavascriptConfiguration, JsonConfiguration, PlainIndentStyle,
+    partial_css_configuration, partial_javascript_configuration, partial_json_configuration,
+    PlainIndentStyle,
 };
 use crate::settings::{
     to_matcher, FormatSettings, LanguageListSettings, LanguageSettings, LinterSettings,
     OrganizeImportsSettings, OverrideFormatSettings, OverrideLinterSettings,
     OverrideOrganizeImportsSettings, OverrideSettingPattern, OverrideSettings, WorkspaceSettings,
 };
-use crate::{MergeWith, Rules, WorkspaceError};
+use crate::{Rules, WorkspaceError};
 use biome_css_syntax::CssLanguage;
 use biome_deserialize::StringSet;
+use biome_deserialize_macros::{Deserializable, Merge};
 use biome_formatter::{LineEnding, LineWidth};
 use biome_js_syntax::JsLanguage;
 use biome_json_syntax::JsonLanguage;
@@ -19,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[derive(Debug, Default, Serialize, Deserialize, Eq, PartialEq, Clone, Bpaf)]
+#[derive(
+    Bpaf, Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize,
+)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Overrides(#[bpaf(hide)] pub Vec<OverridePattern>);
@@ -32,28 +38,9 @@ impl FromStr for Overrides {
     }
 }
 
-impl MergeWith<Overrides> for Overrides {
-    fn merge_with(&mut self, other: Overrides) {
-        let mut self_iter = self.0.iter_mut();
-        let mut other_iter = other.0.into_iter();
-        while let (Some(self_item), Some(other_item)) = (self_iter.next(), other_iter.next()) {
-            self_item.merge_with(other_item);
-        }
-    }
-
-    fn merge_with_if_not_default(&mut self, other: Overrides)
-    where
-        Overrides: Default,
-    {
-        let mut self_iter = self.0.iter_mut();
-        let mut other_iter = other.0.into_iter();
-        while let (Some(self_item), Some(other_item)) = (self_iter.next(), other_iter.next()) {
-            self_item.merge_with_if_not_default(other_item);
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Eq, PartialEq, Clone, Bpaf)]
+#[derive(
+    Bpaf, Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize,
+)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct OverridePattern {
@@ -71,18 +58,18 @@ pub struct OverridePattern {
 
     /// Specific configuration for the JavaScript language
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[bpaf(external(javascript_configuration), optional, hide)]
-    pub javascript: Option<JavascriptConfiguration>,
+    #[bpaf(external(partial_javascript_configuration), optional, hide)]
+    pub javascript: Option<PartialJavascriptConfiguration>,
 
     /// Specific configuration for the Json language
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[bpaf(external(json_configuration), optional, hide)]
-    pub json: Option<JsonConfiguration>,
+    #[bpaf(external(partial_json_configuration), optional, hide)]
+    pub json: Option<PartialJsonConfiguration>,
 
     /// Specific configuration for the Css language
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[bpaf(external(css_configuration), optional, hide)]
-    pub css: Option<CssConfiguration>,
+    #[bpaf(external(partial_css_configuration), optional, hide)]
+    pub css: Option<PartialCssConfiguration>,
 
     /// Specific configuration for the Json language
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -108,95 +95,9 @@ impl FromStr for OverridePattern {
     }
 }
 
-impl MergeWith<OverridePattern> for OverridePattern {
-    fn merge_with(&mut self, other: OverridePattern) {
-        if let Some(other) = other.ignore {
-            let ignore = self.ignore.get_or_insert(StringSet::default());
-            ignore.extend(other.into_index_set());
-        }
-
-        if let Some(other) = other.include {
-            let include = self.include.get_or_insert(StringSet::default());
-            include.extend(other.into_index_set());
-        }
-
-        if let Some(other) = other.formatter {
-            let formatter = self
-                .formatter
-                .get_or_insert(OverrideFormatterConfiguration::default());
-            formatter.merge_with(other);
-        }
-        if let Some(other) = other.linter {
-            let linter = self
-                .linter
-                .get_or_insert(OverrideLinterConfiguration::default());
-            linter.merge_with(other);
-        }
-
-        if let Some(other) = other.organize_imports {
-            let organize_imports = self
-                .organize_imports
-                .get_or_insert(OverrideOrganizeImportsConfiguration::default());
-            organize_imports.merge_with(other);
-        }
-        if let Some(other) = other.javascript {
-            let javascript = self
-                .javascript
-                .get_or_insert(JavascriptConfiguration::default());
-            javascript.merge_with(other)
-        }
-        if let Some(other) = other.json {
-            let json = self.json.get_or_insert(JsonConfiguration::default());
-            json.merge_with(other)
-        }
-    }
-    fn merge_with_if_not_default(&mut self, other: OverridePattern)
-    where
-        OverridePattern: Default,
-    {
-        if let Some(other) = other.ignore {
-            let ignore = self.ignore.get_or_insert(StringSet::default());
-            ignore.extend(other.into_index_set());
-        }
-
-        if let Some(other) = other.include {
-            let include = self.include.get_or_insert(StringSet::default());
-            include.extend(other.into_index_set());
-        }
-
-        if let Some(other) = other.formatter {
-            let formatter = self
-                .formatter
-                .get_or_insert(OverrideFormatterConfiguration::default());
-            formatter.merge_with_if_not_default(other);
-        }
-        if let Some(other) = other.linter {
-            let linter = self
-                .linter
-                .get_or_insert(OverrideLinterConfiguration::default());
-            linter.merge_with_if_not_default(other);
-        }
-
-        if let Some(other) = other.organize_imports {
-            let organize_imports = self
-                .organize_imports
-                .get_or_insert(OverrideOrganizeImportsConfiguration::default());
-            organize_imports.merge_with_if_not_default(other);
-        }
-        if let Some(other) = other.javascript {
-            let javascript = self
-                .javascript
-                .get_or_insert(JavascriptConfiguration::default());
-            javascript.merge_with_if_not_default(other)
-        }
-        if let Some(other) = other.json {
-            let json = self.json.get_or_insert(JsonConfiguration::default());
-            json.merge_with_if_not_default(other)
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Eq, PartialEq, Clone, Bpaf)]
+#[derive(
+    Bpaf, Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize,
+)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct OverrideFormatterConfiguration {
@@ -216,6 +117,7 @@ pub struct OverrideFormatterConfiguration {
 
     /// The size of the indentation, 2 by default (deprecated, use `indent-width`)
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[deserializable(deprecated(use_instead = "formatter.indentWidth"))]
     #[bpaf(long("indent-size"), argument("NUMBER"), optional)]
     pub indent_size: Option<u8>,
 
@@ -238,40 +140,9 @@ pub struct OverrideFormatterConfiguration {
     pub line_width: Option<LineWidth>,
 }
 
-impl MergeWith<OverrideFormatterConfiguration> for OverrideFormatterConfiguration {
-    fn merge_with(&mut self, other: OverrideFormatterConfiguration) {
-        if let Some(enabled) = other.enabled {
-            self.enabled = Some(enabled);
-        }
-        if let Some(indent_size) = other.indent_size {
-            self.indent_width = Some(indent_size);
-        }
-        if let Some(indent_width) = other.indent_width {
-            self.indent_width = Some(indent_width);
-        }
-        if let Some(indent_style) = other.indent_style {
-            self.indent_style = Some(indent_style);
-        }
-        if let Some(line_width) = other.line_width {
-            self.line_width = Some(line_width);
-        }
-
-        if let Some(format_with_errors) = other.format_with_errors {
-            self.format_with_errors = Some(format_with_errors);
-        }
-    }
-
-    fn merge_with_if_not_default(&mut self, other: OverrideFormatterConfiguration)
-    where
-        OverrideFormatterConfiguration: Default,
-    {
-        if other != OverrideFormatterConfiguration::default() {
-            self.merge_with(other)
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Eq, PartialEq, Clone, Bpaf)]
+#[derive(
+    Bpaf, Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize,
+)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct OverrideLinterConfiguration {
@@ -286,27 +157,9 @@ pub struct OverrideLinterConfiguration {
     pub rules: Option<Rules>,
 }
 
-impl MergeWith<OverrideLinterConfiguration> for OverrideLinterConfiguration {
-    fn merge_with(&mut self, other: OverrideLinterConfiguration) {
-        if let Some(enabled) = other.enabled {
-            self.enabled = Some(enabled);
-        }
-        if let Some(rules) = other.rules {
-            self.rules = Some(rules);
-        }
-    }
-
-    fn merge_with_if_not_default(&mut self, other: OverrideLinterConfiguration)
-    where
-        OverrideLinterConfiguration: Default,
-    {
-        if other != OverrideLinterConfiguration::default() {
-            self.merge_with(other)
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Eq, PartialEq, Clone, Bpaf)]
+#[derive(
+    Bpaf, Clone, Debug, Default, Deserialize, Deserializable, Eq, Merge, PartialEq, Serialize,
+)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct OverrideOrganizeImportsConfiguration {
@@ -316,28 +169,9 @@ pub struct OverrideOrganizeImportsConfiguration {
     pub enabled: Option<bool>,
 }
 
-impl MergeWith<OverrideOrganizeImportsConfiguration> for OverrideOrganizeImportsConfiguration {
-    fn merge_with(&mut self, other: OverrideOrganizeImportsConfiguration) {
-        if let Some(enabled) = other.enabled {
-            self.enabled = Some(enabled);
-        }
-    }
-
-    fn merge_with_if_not_default(&mut self, other: OverrideOrganizeImportsConfiguration)
-    where
-        OverrideOrganizeImportsConfiguration: Default,
-    {
-        if other != OverrideOrganizeImportsConfiguration::default() {
-            self.merge_with(other)
-        }
-    }
-}
-
 pub fn to_override_settings(
     working_directory: Option<PathBuf>,
     overrides: Overrides,
-    vcs_base_path: Option<PathBuf>,
-    gitignore_matches: &[String],
     current_settings: &WorkspaceSettings,
 ) -> Result<OverrideSettings, WorkspaceError> {
     let mut override_settings = OverrideSettings::default();
@@ -363,18 +197,8 @@ pub fn to_override_settings(
         languages.css = to_css_language_settings(css, &current_settings.languages.css);
 
         let pattern_setting = OverrideSettingPattern {
-            include: to_matcher(
-                working_directory.clone(),
-                pattern.include.as_ref(),
-                vcs_base_path.clone(),
-                gitignore_matches,
-            )?,
-            exclude: to_matcher(
-                working_directory.clone(),
-                pattern.ignore.as_ref(),
-                vcs_base_path.clone(),
-                gitignore_matches,
-            )?,
+            include: to_matcher(working_directory.clone(), pattern.include.as_ref())?,
+            exclude: to_matcher(working_directory.clone(), pattern.ignore.as_ref())?,
             formatter,
             linter,
             organize_imports,
@@ -419,7 +243,7 @@ pub(crate) fn to_format_settings(
 }
 
 fn to_javascript_language_settings(
-    mut conf: JavascriptConfiguration,
+    mut conf: PartialJavascriptConfiguration,
     parent_settings: &LanguageSettings<JsLanguage>,
 ) -> LanguageSettings<JsLanguage> {
     let mut language_setting: LanguageSettings<JsLanguage> = LanguageSettings::default();
@@ -470,14 +294,14 @@ fn to_javascript_language_settings(
 
     language_setting.globals = conf
         .globals
-        .map(|global| global.into_index_set())
-        .or(parent_settings.globals.clone());
+        .map(StringSet::into_index_set)
+        .or_else(|| parent_settings.globals.clone());
 
     language_setting
 }
 
 fn to_json_language_settings(
-    mut conf: JsonConfiguration,
+    mut conf: PartialJsonConfiguration,
     parent_settings: &LanguageSettings<JsonLanguage>,
 ) -> LanguageSettings<JsonLanguage> {
     let mut language_setting: LanguageSettings<JsonLanguage> = LanguageSettings::default();
@@ -511,7 +335,7 @@ fn to_json_language_settings(
 }
 
 fn to_css_language_settings(
-    mut conf: CssConfiguration,
+    mut conf: PartialCssConfiguration,
     parent_settings: &LanguageSettings<CssLanguage>,
 ) -> LanguageSettings<CssLanguage> {
     let mut language_setting: LanguageSettings<CssLanguage> = LanguageSettings::default();

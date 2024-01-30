@@ -1,6 +1,6 @@
 use crate::JsRuleAction;
 use biome_analyze::context::RuleContext;
-use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic};
+use biome_analyze::{declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic, RuleSource};
 use biome_console::markup;
 use biome_diagnostics::Applicability;
 use biome_js_factory::make;
@@ -15,8 +15,6 @@ declare_rule! {
     ///
     /// When the value of enum members are important,
     /// allowing implicit values for enum members can cause bugs if enum declarations are modified over time.
-    ///
-    /// Source: https://typescript-eslint.io/rules/prefer-enum-initializers
     ///
     /// ## Examples
     ///
@@ -69,6 +67,7 @@ declare_rule! {
     pub(crate) UseEnumInitializers {
         version: "1.0.0",
         name: "useEnumInitializers",
+        source: RuleSource::EslintTypeScript("prefer-enum-initializers"),
         recommended: true,
         fix_kind: FixKind::Safe,
     }
@@ -125,6 +124,7 @@ impl Rule for UseEnumInitializers {
         let mut mutation = ctx.root().begin();
         let mut has_mutations = false;
         let mut next_member_value = EnumInitializer::Integer(0);
+
         for enum_member in enum_declaration.members() {
             let enum_member = enum_member.ok()?;
             if let Some(initializer) = enum_member.initializer() {
@@ -166,17 +166,24 @@ impl Rule for UseEnumInitializers {
                 };
                 if let Some(x) = x {
                     has_mutations = true;
-                    let new_enum_member =
-                        enum_member
-                            .clone()
-                            .with_initializer(Some(make::js_initializer_clause(
-                                make::token_decorated_with_space(JsSyntaxKind::EQ),
-                                AnyJsExpression::AnyJsLiteralExpression(x),
-                            )));
-                    mutation.replace_node_discard_trivia(enum_member, new_enum_member);
+
+                    // When creating the replacement node we first need to remove the trailing trivia.
+                    // Otherwise nodes without trailing comma will add [JsSyntacKind::EQ] and [EnumInitializer]
+                    // after it.
+                    let new_enum_member = enum_member
+                        .clone()
+                        .with_trailing_trivia_pieces([])?
+                        .with_initializer(Some(make::js_initializer_clause(
+                            make::token_decorated_with_space(JsSyntaxKind::EQ),
+                            AnyJsExpression::AnyJsLiteralExpression(x),
+                        )));
+
+                    // Replace current node and attach trivia from it to the new one.
+                    mutation.replace_node(enum_member, new_enum_member);
                 }
             }
         }
+
         if has_mutations {
             return Some(JsRuleAction {
                 category: ActionCategory::QuickFix,

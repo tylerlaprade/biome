@@ -1,6 +1,6 @@
 use crate::{semantic_services::Semantic, JsRuleAction};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -22,8 +22,6 @@ declare_rule! {
     /// For example, the character `❇️` consists of two code points: `❇` (U+2747) and `VARIATION SELECTOR-16` (U+FE0F).
     /// If this character is in a RegExp character class, it will match to either `❇` or `VARIATION SELECTOR-16` rather than `❇️`.
     /// This rule reports the regular expressions which include multiple code point characters in character class syntax.
-    ///
-    /// Source: https://eslint.org/docs/latest/rules/no-misleading-character-class
     ///
     /// ## Examples
     ///
@@ -53,7 +51,7 @@ declare_rule! {
     /// /^[👍]$/; // surrogate pair without u flag
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// /^[abc]$/;
@@ -65,6 +63,7 @@ declare_rule! {
     pub(crate) NoMisleadingCharacterClass {
         version: "1.5.0",
         name: "noMisleadingCharacterClass",
+        source: RuleSource::Eslint("no-misleading-character-class"),
         recommended: false,
         fix_kind: FixKind::Safe,
     }
@@ -294,10 +293,11 @@ fn diagnostic_regex_pattern(
     has_u_flag: bool,
     range: TextRange,
 ) -> Option<RuleState> {
+    let regex_bytes_len = regex_pattern.as_bytes().len();
     let mut is_in_character_class = false;
     let mut escape_next = false;
-    let char_iter = regex_pattern.chars().peekable();
-    for (i, ch) in char_iter.enumerate() {
+    // We use `char_indices` to get the byte index of every character
+    for (i, ch) in regex_pattern.char_indices() {
         if escape_next {
             escape_next = false;
             continue;
@@ -306,7 +306,7 @@ fn diagnostic_regex_pattern(
             '\\' => escape_next = true,
             '[' => is_in_character_class = true,
             ']' => is_in_character_class = false,
-            _ if is_in_character_class && i < regex_pattern.len() => {
+            _ if is_in_character_class && i < regex_bytes_len => {
                 if !has_u_flag && has_surrogate_pair(&regex_pattern[i..]) {
                     return Some(RuleState {
                         range,

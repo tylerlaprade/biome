@@ -43,19 +43,6 @@ pub(crate) fn expected_non_css_wide_keyword_identifier(
     }
 }
 
-pub(crate) fn expected_expression(p: &CssParser, range: TextRange) -> ParseDiagnostic {
-    expected_any(
-        &[
-            "component value",
-            "binary expression",
-            "parenthesized expression",
-            "any function expression",
-        ],
-        range,
-        p,
-    )
-}
-
 pub(crate) fn expected_number(p: &CssParser, range: TextRange) -> ParseDiagnostic {
     expected_node("number", range, p)
 }
@@ -73,7 +60,7 @@ pub(crate) fn expected_selector(p: &CssParser, range: TextRange) -> ParseDiagnos
 }
 
 pub(crate) fn expected_any_rule(p: &CssParser, range: TextRange) -> ParseDiagnostic {
-    expected_any(&["rule", "at rule"], range, p)
+    expected_any(&["qualified rule", "at rule"], range, p)
 }
 
 pub(crate) fn expected_any_declaration_or_at_rule(

@@ -5,17 +5,19 @@ use crate::logging::LoggingKind;
 use crate::{CliDiagnostic, LoggingLevel, VERSION};
 use biome_console::{markup, Console, ConsoleExt};
 use biome_diagnostics::{Diagnostic, PrintDiagnostic};
-use biome_service::configuration::css::CssFormatter;
-use biome_service::configuration::json::JsonFormatter;
-use biome_service::configuration::vcs::VcsConfiguration;
+use biome_service::configuration::vcs::PartialVcsConfiguration;
 use biome_service::configuration::{
-    configuration, css::css_formatter, files_configuration, formatter_configuration,
-    javascript::javascript_formatter, json::json_formatter, linter_configuration,
-    vcs::vcs_configuration, FilesConfiguration, FormatterConfiguration, JavascriptFormatter,
-    LinterConfiguration, LoadedConfiguration,
+    css::partial_css_formatter, javascript::partial_javascript_formatter,
+    json::partial_json_formatter, partial_configuration, partial_files_configuration,
+    partial_formatter_configuration, partial_linter_configuration, vcs::partial_vcs_configuration,
+};
+use biome_service::configuration::{
+    LoadedConfiguration, PartialCssFormatter, PartialFilesConfiguration,
+    PartialFormatterConfiguration, PartialJavascriptFormatter, PartialJsonFormatter,
+    PartialLinterConfiguration,
 };
 use biome_service::documentation::Doc;
-use biome_service::{Configuration, ConfigurationDiagnostic, WorkspaceError};
+use biome_service::{ConfigurationDiagnostic, PartialConfiguration, WorkspaceError};
 use bpaf::Bpaf;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -87,8 +89,8 @@ pub enum BiomeCommand {
             hide_usage
         )]
         organize_imports_enabled: Option<bool>,
-        #[bpaf(external, hide_usage, optional)]
-        configuration: Option<Configuration>,
+        #[bpaf(external(partial_configuration), hide_usage, optional)]
+        configuration: Option<PartialConfiguration>,
         #[bpaf(external, hide_usage)]
         cli_options: CliOptions,
         /// Use this option when you want to format code piped from `stdin`, and print the output to `stdout`.
@@ -122,14 +124,14 @@ pub enum BiomeCommand {
         /// Apply safe fixes and unsafe fixes, formatting and import sorting
         #[bpaf(long("apply-unsafe"), switch)]
         apply_unsafe: bool,
-        #[bpaf(external, hide_usage, optional)]
-        linter_configuration: Option<LinterConfiguration>,
+        #[bpaf(external(partial_linter_configuration), hide_usage, optional)]
+        linter_configuration: Option<PartialLinterConfiguration>,
 
-        #[bpaf(external, optional, hide_usage)]
-        vcs_configuration: Option<VcsConfiguration>,
+        #[bpaf(external(partial_vcs_configuration), optional, hide_usage)]
+        vcs_configuration: Option<PartialVcsConfiguration>,
 
-        #[bpaf(external, optional, hide_usage)]
-        files_configuration: Option<FilesConfiguration>,
+        #[bpaf(external(partial_files_configuration), optional, hide_usage)]
+        files_configuration: Option<PartialFilesConfiguration>,
 
         #[bpaf(external, hide_usage)]
         cli_options: CliOptions,
@@ -155,23 +157,23 @@ pub enum BiomeCommand {
     /// Run the formatter on a set of files.
     #[bpaf(command)]
     Format {
-        #[bpaf(external, optional, hide_usage)]
-        formatter_configuration: Option<FormatterConfiguration>,
+        #[bpaf(external(partial_formatter_configuration), optional, hide_usage)]
+        formatter_configuration: Option<PartialFormatterConfiguration>,
 
-        #[bpaf(external, optional, hide_usage)]
-        javascript_formatter: Option<JavascriptFormatter>,
+        #[bpaf(external(partial_javascript_formatter), optional, hide_usage)]
+        javascript_formatter: Option<PartialJavascriptFormatter>,
 
-        #[bpaf(external, optional, hide_usage)]
-        json_formatter: Option<JsonFormatter>,
+        #[bpaf(external(partial_json_formatter), optional, hide_usage)]
+        json_formatter: Option<PartialJsonFormatter>,
 
-        #[bpaf(external, optional, hide_usage, hide)]
-        css_formatter: Option<CssFormatter>,
+        #[bpaf(external(partial_css_formatter), optional, hide_usage, hide)]
+        css_formatter: Option<PartialCssFormatter>,
 
-        #[bpaf(external, optional, hide_usage)]
-        vcs_configuration: Option<VcsConfiguration>,
+        #[bpaf(external(partial_vcs_configuration), optional, hide_usage)]
+        vcs_configuration: Option<PartialVcsConfiguration>,
 
-        #[bpaf(external, optional, hide_usage)]
-        files_configuration: Option<FilesConfiguration>,
+        #[bpaf(external(partial_files_configuration), optional, hide_usage)]
+        files_configuration: Option<PartialFilesConfiguration>,
         /// Use this option when you want to format code piped from `stdin`, and print the output to `stdout`.
         ///
         /// The file doesn't need to exist on disk, what matters is the extension of the file. Based on the extension, Biome knows how to format the code.
@@ -216,8 +218,8 @@ pub enum BiomeCommand {
         #[bpaf(long("organize-imports-enabled"), argument("true|false"), optional)]
         organize_imports_enabled: Option<bool>,
 
-        #[bpaf(external, hide_usage)]
-        configuration: Configuration,
+        #[bpaf(external(partial_configuration), hide_usage)]
+        configuration: PartialConfiguration,
         #[bpaf(external, hide_usage)]
         cli_options: CliOptions,
 
@@ -248,12 +250,19 @@ pub enum BiomeCommand {
     ),
     /// It updates the configuration when there are breaking changes
     #[bpaf(command)]
-    Migrate(
-        #[bpaf(external(cli_options), hide_usage)] CliOptions,
+    Migrate {
+        /// It attempts to find the files `.prettierrc`/`prettier.json` and `.prettierignore`, and map
+        /// Prettier's configuration into `biome.json`
+        #[bpaf(long("prettier"), switch, hide, hide_usage)]
+        prettier: bool,
+
+        #[bpaf(external, hide_usage)]
+        cli_options: CliOptions,
+
         /// Writes the new configuration file to disk
         #[bpaf(long("write"), switch)]
-        bool,
-    ),
+        write: bool,
+    },
 
     /// A command to retrieve the documentation of various aspects of the CLI.
     ///
@@ -294,7 +303,7 @@ impl BiomeCommand {
             | BiomeCommand::Lint { cli_options, .. }
             | BiomeCommand::Ci { cli_options, .. }
             | BiomeCommand::Format { cli_options, .. }
-            | BiomeCommand::Migrate(cli_options, _) => cli_options.colors.as_ref(),
+            | BiomeCommand::Migrate { cli_options, .. } => cli_options.colors.as_ref(),
             BiomeCommand::LspProxy(_)
             | BiomeCommand::Start(_)
             | BiomeCommand::Stop
@@ -313,7 +322,7 @@ impl BiomeCommand {
             | BiomeCommand::Lint { cli_options, .. }
             | BiomeCommand::Ci { cli_options, .. }
             | BiomeCommand::Format { cli_options, .. }
-            | BiomeCommand::Migrate(cli_options, _) => cli_options.use_server,
+            | BiomeCommand::Migrate { cli_options, .. } => cli_options.use_server,
             BiomeCommand::Init
             | BiomeCommand::Start(_)
             | BiomeCommand::Stop
@@ -334,7 +343,7 @@ impl BiomeCommand {
             | BiomeCommand::Lint { cli_options, .. }
             | BiomeCommand::Format { cli_options, .. }
             | BiomeCommand::Ci { cli_options, .. }
-            | BiomeCommand::Migrate(cli_options, _) => cli_options.verbose,
+            | BiomeCommand::Migrate { cli_options, .. } => cli_options.verbose,
             BiomeCommand::Version(_)
             | BiomeCommand::Rage(..)
             | BiomeCommand::Start(_)
@@ -353,7 +362,7 @@ impl BiomeCommand {
             | BiomeCommand::Lint { cli_options, .. }
             | BiomeCommand::Format { cli_options, .. }
             | BiomeCommand::Ci { cli_options, .. }
-            | BiomeCommand::Migrate(cli_options, _) => cli_options.log_level.clone(),
+            | BiomeCommand::Migrate { cli_options, .. } => cli_options.log_level.clone(),
             BiomeCommand::Version(_)
             | BiomeCommand::LspProxy(_)
             | BiomeCommand::Rage(..)
@@ -371,7 +380,7 @@ impl BiomeCommand {
             | BiomeCommand::Lint { cli_options, .. }
             | BiomeCommand::Format { cli_options, .. }
             | BiomeCommand::Ci { cli_options, .. }
-            | BiomeCommand::Migrate(cli_options, _) => cli_options.log_kind.clone(),
+            | BiomeCommand::Migrate { cli_options, .. } => cli_options.log_kind.clone(),
             BiomeCommand::Version(_)
             | BiomeCommand::Rage(..)
             | BiomeCommand::LspProxy(_)
@@ -385,7 +394,7 @@ impl BiomeCommand {
     }
 }
 
-/// It accepts a [LoadedConfiguration] and it prints the diagnostics emitted during parsing and deserialization.
+/// It accepts a [LoadedPartialConfiguration] and it prints the diagnostics emitted during parsing and deserialization.
 ///
 /// If it contains errors, it return an error.
 pub(crate) fn validate_configuration_diagnostics(

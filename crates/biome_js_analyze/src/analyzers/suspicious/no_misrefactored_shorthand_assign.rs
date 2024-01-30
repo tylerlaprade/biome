@@ -1,5 +1,6 @@
 use biome_analyze::{
     context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
+    RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -19,8 +20,6 @@ declare_rule! {
     /// This rule helps to avoid potential bugs related to incorrect assignments or unintended
     /// side effects that may occur during refactoring.
     ///
-    /// Source: https://rust-lang.github.io/rust-clippy/master/#/misrefactored_assign_op
-    ///
     /// ## Examples
     ///
     /// ### Invalid
@@ -37,7 +36,7 @@ declare_rule! {
     /// a *= a * b
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// a += b
@@ -53,6 +52,7 @@ declare_rule! {
     pub(crate) NoMisrefactoredShorthandAssign {
         version: "1.3.0",
         name: "noMisrefactoredShorthandAssign",
+        source: RuleSource::Clippy("misrefactored_assign_op"),
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }

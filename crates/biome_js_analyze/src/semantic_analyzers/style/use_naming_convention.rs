@@ -8,13 +8,11 @@ use crate::{
     JsRuleAction,
 };
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
+    RuleSourceKind,
 };
 use biome_console::markup;
-use biome_deserialize::{
-    Deserializable, DeserializableValue, DeserializationDiagnostic, DeserializationVisitor, Text,
-    VisitableType,
-};
+use biome_deserialize_macros::Deserializable;
 use biome_diagnostics::Applicability;
 use biome_js_semantic::CanBeImportedExported;
 use biome_js_syntax::{
@@ -24,7 +22,7 @@ use biome_js_syntax::{
     JsVariableDeclarator, JsVariableKind, TsEnumMember, TsIdentifierBinding, TsTypeParameterName,
 };
 use biome_rowan::{
-    declare_node_union, AstNode, AstNodeList, BatchMutationExt, SyntaxResult, TextRange, TokenText,
+    declare_node_union, AstNode, AstNodeList, BatchMutationExt, SyntaxResult, TokenText,
 };
 use biome_unicode_table::is_js_ident;
 use serde::{Deserialize, Serialize};
@@ -276,6 +274,8 @@ declare_rule! {
     pub(crate)  UseNamingConvention {
         version: "1.0.0",
         name: "useNamingConvention",
+        source: RuleSource::EslintTypeScript("naming-convention"),
+        source_kind: RuleSourceKind::Inspired,
         recommended: false,
         fix_kind: FixKind::Safe,
     }
@@ -456,7 +456,7 @@ pub(crate) struct State {
 }
 
 /// Rule's options.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NamingConventionOptions {
@@ -494,62 +494,8 @@ impl Default for NamingConventionOptions {
     }
 }
 
-impl Deserializable for NamingConventionOptions {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        value.deserialize(NamingConventionOptionsVisitor, name, diagnostics)
-    }
-}
-
-struct NamingConventionOptionsVisitor;
-impl DeserializationVisitor for NamingConventionOptionsVisitor {
-    type Output = NamingConventionOptions;
-
-    const EXPECTED_TYPE: VisitableType = VisitableType::MAP;
-
-    fn visit_map(
-        self,
-        members: impl Iterator<Item = Option<(impl DeserializableValue, impl DeserializableValue)>>,
-        _range: TextRange,
-        _name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self::Output> {
-        const ALLOWED_KEYS: &[&str] = &["strictCase", "enumMemberCase"];
-        let mut result = Self::Output::default();
-        for (key, value) in members.flatten() {
-            let Some(key_text) = Text::deserialize(&key, "", diagnostics) else {
-                continue;
-            };
-            match key_text.text() {
-                "strictCase" => {
-                    if let Some(strict_case) =
-                        Deserializable::deserialize(&value, &key_text, diagnostics)
-                    {
-                        result.strict_case = strict_case;
-                    }
-                }
-                "enumMemberCase" => {
-                    if let Some(case) = Deserializable::deserialize(&value, &key_text, diagnostics)
-                    {
-                        result.enum_member_case = case;
-                    }
-                }
-                unknown_key => diagnostics.push(DeserializationDiagnostic::new_unknown_key(
-                    unknown_key,
-                    key.range(),
-                    ALLOWED_KEYS,
-                )),
-            }
-        }
-        Some(result)
-    }
-}
-
 /// Supported cases for TypeScript `enum` member names.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum EnumMemberCase {
     /// PascalCase
@@ -575,27 +521,6 @@ impl FromStr for EnumMemberCase {
             "CONSTANT_CASE" => Ok(Self::Constant),
             "camelCase" => Ok(Self::Camel),
             _ => Err("Value not supported for enum member case"),
-        }
-    }
-}
-
-impl Deserializable for EnumMemberCase {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        const ALLOWED_VARIANTS: &[&str] = &["camelCase", "CONSTANT_CASE", "PascalCase"];
-        let value_text = Text::deserialize(value, name, diagnostics)?;
-        if let Ok(value) = value_text.parse::<Self>() {
-            Some(value)
-        } else {
-            diagnostics.push(DeserializationDiagnostic::new_unknown_value(
-                value_text.text(),
-                value.range(),
-                ALLOWED_VARIANTS,
-            ));
-            None
         }
     }
 }

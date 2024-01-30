@@ -1,4 +1,6 @@
-use crate::{Deserializable, DeserializableValue};
+use crate::{self as biome_deserialize, Merge};
+use biome_deserialize_macros::Deserializable;
+use indexmap::set::IntoIter;
 use indexmap::IndexSet;
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -8,7 +10,7 @@ use std::str::FromStr;
 
 // To implement serde's traits, we encapsulate `IndexSet<String>` in a new type `StringSet`.
 
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Default, Debug, Deserializable, Eq, PartialEq)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct StringSet(IndexSet<String>);
 
@@ -23,6 +25,13 @@ impl StringSet {
 
     pub fn clear(&mut self) {
         self.0.clear();
+    }
+
+    pub fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        self.0.extend(iter)
     }
 }
 
@@ -77,6 +86,21 @@ impl<'de> Deserialize<'de> for StringSet {
     }
 }
 
+impl IntoIterator for StringSet {
+    type Item = String;
+    type IntoIter = IntoIter<String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl Merge for StringSet {
+    fn merge_with(&mut self, other: Self) {
+        self.extend(other)
+    }
+}
+
 impl Serialize for StringSet {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -87,15 +111,5 @@ impl Serialize for StringSet {
             sequence.serialize_element(&item)?;
         }
         sequence.end()
-    }
-}
-
-impl Deserializable for StringSet {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<crate::DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        Deserializable::deserialize(value, name, diagnostics).map(StringSet)
     }
 }

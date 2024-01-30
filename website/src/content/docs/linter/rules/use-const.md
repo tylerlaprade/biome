@@ -8,6 +8,8 @@ title: useConst (since v1.0.0)
 This rule is recommended by Biome. A diagnostic error will appear when linting your code.
 :::
 
+Source: <a href="https://eslint.org/docs/latest/rules/prefer-const" target="_blank"><code>prefer-const</code></a>
+
 Require `const` declarations for variables that are never reassigned after declared.
 
 ## Examples
@@ -147,7 +149,7 @@ let a = 3;
   
 </code></pre>
 
-## Valid
+### Valid
 
 ```jsx
 let a = 2;

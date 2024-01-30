@@ -1,6 +1,6 @@
 use crate::{aria_services::Aria, JsRuleAction};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
 };
 use biome_aria::AriaRoles;
 use biome_console::markup;
@@ -18,8 +18,6 @@ declare_rule! {
     /// You don't need to add tabindex to items in an unordered list as assistive technology can navigate through the HTML.
     /// Keep the tab ring small, which is the order of elements when tabbing, for a more efficient and accessible browsing experience.
     ///
-    /// ESLint (eslint-plugin-jsx-a11y) Equivalent: [no-noninteractive-tabindex](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/no-noninteractive-tabindex.md)
-    ///
     /// ## Examples
     ///
     /// ### Invalid
@@ -36,7 +34,7 @@ declare_rule! {
     /// <article tabIndex="0" />
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```jsx
     /// <div />
@@ -53,6 +51,7 @@ declare_rule! {
     pub(crate) NoNoninteractiveTabindex {
         version: "1.0.0",
         name: "noNoninteractiveTabindex",
+        source: RuleSource::EslintJsxA11y("no-noninteractive-tabindex"),
         recommended: true,
         fix_kind: FixKind::Unsafe,
     }

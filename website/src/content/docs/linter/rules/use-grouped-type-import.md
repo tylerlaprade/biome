@@ -8,6 +8,8 @@ title: useGroupedTypeImport (since v1.0.0)
 This rule is part of the [nursery](/linter/rules/#nursery) group.
 :::
 
+Source: <a href="https://typescript-eslint.io/rules/no-import-type-side-effects" target="_blank"><code>no-import-type-side-effects</code></a>
+
 Enforce the use of `import type` when an `import` only has specifiers with `type` qualifier.
 
 The [`--verbatimModuleSyntax`](https://www.typescriptlang.org/tsconfig#verbatimModuleSyntax) _TypeScript_'s compiler option causes _TypeScript_ to do simple and predictable transpilation on `import` declarations.
@@ -58,8 +60,6 @@ import "mod"; // side-effect import
 import type { A, B } from "mod";
 ```
 
-Source: https://typescript-eslint.io/rules/no-import-type-side-effects/
-
 ## Examples
 
 ### Invalid
@@ -86,7 +86,7 @@ import { type A } from "mod";
   
 </code></pre>
 
-## Valid
+### Valid
 
 ```ts
 import type { A, B } from "mod";

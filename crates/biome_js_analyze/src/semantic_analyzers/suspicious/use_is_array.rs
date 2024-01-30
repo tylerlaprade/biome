@@ -1,6 +1,6 @@
 use crate::{semantic_services::Semantic, JsRuleAction};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -20,8 +20,6 @@ declare_rule! {
     /// To avoid these issues, use `Array.isArray()` instead of `instanceof Array`.
     /// See the [MDN docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray) for more details.
     ///
-    /// Source: https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-instanceof-array.md
-    ///
     /// ## Examples
     ///
     /// ### Invalid
@@ -31,7 +29,7 @@ declare_rule! {
     /// if (xs instanceof Array) {}
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// const xs = [];
@@ -41,6 +39,7 @@ declare_rule! {
     pub(crate) UseIsArray {
         version: "1.0.0",
         name: "useIsArray",
+        source: RuleSource::EslintUnicorn("no-instanceof-array"),
         recommended: true,
         fix_kind: FixKind::Unsafe,
     }

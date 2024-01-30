@@ -8,6 +8,8 @@ title: noInteractiveElementToNoninteractiveRole (since v1.3.0)
 This rule is recommended by Biome. A diagnostic error will appear when linting your code.
 :::
 
+Source: <a href="https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/no-interactive-element-to-noninteractive-role.md" target="_blank"><code>no-interactive-element-to-noninteractive-role</code></a>
+
 Enforce that non-interactive ARIA roles are not assigned to interactive HTML elements.
 
 Interactive HTML elements indicate controls in the user interface.
@@ -17,8 +19,6 @@ Non-interactive elements include `<main>`, `<area>`, `<h1>` (,`<h2>`, etc), `<im
 
 [WAI-ARIA roles](https://www.w3.org/TR/wai-aria-1.1/#usage_intro) should not be used to convert an interactive element to a non-interactive element.
 Non-interactive ARIA roles include `article`, `banner`, `complementary`, `img`, `listitem`, `main`, `region` and `tooltip`.
-
-Source: https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/no-interactive-element-to-noninteractive-role.md
 
 ## Examples
 
@@ -46,7 +46,7 @@ Source: https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rule
 <strong>  </strong><strong>    │ </strong>       <span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span><span style="color: Tomato;">-</span>   
 </code></pre>
 
-## Valid
+### Valid
 
 ```jsx
 <input role="button" />;

@@ -1,5 +1,5 @@
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
@@ -29,8 +29,6 @@ declare_rule! {
     /// Using regular expression literals avoids some escaping required in a string literal,
     /// and are easier to analyze statically.
     ///
-    /// Source: https://eslint.org/docs/latest/rules/prefer-regex-literals/
-    ///
     /// ## Examples
     ///
     /// ### Invalid
@@ -39,7 +37,7 @@ declare_rule! {
     /// new RegExp("abc", "u");
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// /abc/u;
@@ -50,6 +48,7 @@ declare_rule! {
     pub(crate) UseRegexLiterals {
         version: "1.3.0",
         name: "useRegexLiterals",
+        source: RuleSource::Eslint("prefer-regex-literals"),
         recommended: true,
         fix_kind: FixKind::Unsafe,
     }
@@ -173,6 +172,9 @@ fn create_pattern(
     };
     let pattern = extract_literal_string(pattern)?;
     let pattern = pattern.replace("\\\\", "\\");
+
+    // Convert slash to "\/" to avoid parsing error in autofix.
+    let pattern = pattern.replace('/', "\\/");
 
     // If pattern is empty, (?:) is used instead.
     if pattern.is_empty() {

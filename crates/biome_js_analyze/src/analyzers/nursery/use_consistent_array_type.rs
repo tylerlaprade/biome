@@ -1,27 +1,21 @@
-use std::str::FromStr;
-
+use crate::JsRuleAction;
 use biome_analyze::{
     context::RuleContext, declare_rule, ActionCategory, Ast, FixKind, Rule, RuleDiagnostic,
+    RuleSource,
 };
 use biome_console::{markup, Markup, MarkupBuf};
-use biome_deserialize::{
-    Deserializable, DeserializableValue, DeserializationDiagnostic, DeserializationVisitor, Text,
-    VisitableType,
-};
+use biome_deserialize_macros::Deserializable;
 use biome_diagnostics::Applicability;
 use biome_js_factory::make;
 use biome_js_syntax::{
     AnyTsName, AnyTsType, JsSyntaxKind, JsSyntaxToken, TriviaPieceKind, TsReferenceType,
     TsTypeArguments, T,
 };
-use biome_rowan::{
-    AstNode, AstSeparatedList, BatchMutationExt, SyntaxNodeOptionExt, TextRange, TriviaPiece,
-};
+use biome_rowan::{AstNode, AstSeparatedList, BatchMutationExt, SyntaxNodeOptionExt, TriviaPiece};
 #[cfg(feature = "schemars")]
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-use crate::JsRuleAction;
+use std::str::FromStr;
 
 declare_rule! {
     /// Require consistently using either `T[]` or `Array<T>`
@@ -29,8 +23,6 @@ declare_rule! {
     /// _TypeScript_ provides two equivalent ways to define an array type: `T[]` and `Array<T>`.
     /// The two styles are functionally equivalent.
     /// Using the same style consistently across your codebase makes it easier for developers to read and understand array types.
-    ///
-    /// Source: https://typescript-eslint.io/rules/array-type
     ///
     /// ## Example
     ///
@@ -78,6 +70,7 @@ declare_rule! {
     pub(crate) UseConsistentArrayType {
         version: "1.5.0",
         name: "useConsistentArrayType",
+        source: RuleSource::EslintTypeScript("array-type"),
         recommended: false,
         fix_kind: FixKind::Unsafe,
     }
@@ -476,14 +469,14 @@ where
     )
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConsistentArrayTypeOptions {
     syntax: ConsistentArrayType,
 }
 
-#[derive(Deserialize, Serialize, Debug, Default, Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Deserializable, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum ConsistentArrayType {
@@ -494,53 +487,6 @@ pub enum ConsistentArrayType {
     Generic,
 }
 
-impl Deserializable for ConsistentArrayTypeOptions {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        struct Visitor;
-        impl DeserializationVisitor for Visitor {
-            type Output = ConsistentArrayTypeOptions;
-            const EXPECTED_TYPE: VisitableType = VisitableType::MAP;
-            fn visit_map(
-                self,
-                members: impl Iterator<
-                    Item = Option<(impl DeserializableValue, impl DeserializableValue)>,
-                >,
-                _range: TextRange,
-                _name: &str,
-                diagnostics: &mut Vec<DeserializationDiagnostic>,
-            ) -> Option<Self::Output> {
-                const ALLOWED_KEYS: &[&str] = &["syntax"];
-                let mut result = Self::Output::default();
-                for (key, value) in members.flatten() {
-                    let Some(key_text) = Text::deserialize(&key, "", diagnostics) else {
-                        continue;
-                    };
-                    match key_text.text() {
-                        "syntax" => {
-                            if let Some(val) =
-                                Deserializable::deserialize(&value, &key_text, diagnostics)
-                            {
-                                result.syntax = val;
-                            }
-                        }
-                        text => diagnostics.push(DeserializationDiagnostic::new_unknown_key(
-                            text,
-                            key.range(),
-                            ALLOWED_KEYS,
-                        )),
-                    }
-                }
-                Some(result)
-            }
-        }
-        value.deserialize(Visitor, name, diagnostics)
-    }
-}
-
 impl FromStr for ConsistentArrayType {
     type Err = &'static str;
 
@@ -549,27 +495,6 @@ impl FromStr for ConsistentArrayType {
             "shorthand" => Ok(Self::Shorthand),
             "generic" => Ok(Self::Generic),
             _ => Err("Value not supported for array type syntax"),
-        }
-    }
-}
-
-impl Deserializable for ConsistentArrayType {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        const ALLOWED_VARIANTS: &[&str] = &["shorthand", "generic"];
-        let value_text = Text::deserialize(value, name, diagnostics)?;
-        if let Ok(value) = value_text.parse::<Self>() {
-            Some(value)
-        } else {
-            diagnostics.push(DeserializationDiagnostic::new_unknown_key(
-                value_text.text(),
-                value.range(),
-                ALLOWED_VARIANTS,
-            ));
-            None
         }
     }
 }

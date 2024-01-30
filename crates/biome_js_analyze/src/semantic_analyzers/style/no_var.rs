@@ -1,11 +1,13 @@
 use crate::{control_flow::AnyJsControlFlowRoot, semantic_services::Semantic, JsRuleAction};
 use biome_analyze::{
-    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic,
+    context::RuleContext, declare_rule, ActionCategory, FixKind, Rule, RuleDiagnostic, RuleSource,
 };
 use biome_console::markup;
 use biome_diagnostics::Applicability;
 use biome_js_factory::make;
-use biome_js_syntax::{AnyJsVariableDeclaration, JsModule, JsScript, JsSyntaxKind};
+use biome_js_syntax::{
+    AnyJsVariableDeclaration, JsModule, JsScript, JsSyntaxKind, TsGlobalDeclaration,
+};
 
 use biome_rowan::{AstNode, BatchMutationExt};
 
@@ -17,8 +19,6 @@ declare_rule! {
     /// ECMAScript 6 allows programmers to create variables with block scope instead of function scope using the let and const keywords.
     ///
     /// Block scope is common in many other programming languages and helps programmers avoid mistakes.
-    ///
-    /// Source: https://eslint.org/docs/latest/rules/no-var
     ///
     /// ## Examples
     ///
@@ -37,6 +37,7 @@ declare_rule! {
     pub(crate) NoVar {
         version: "1.0.0",
         name: "noVar",
+        source: RuleSource::Eslint("no-var"),
         recommended: true,
         fix_kind: FixKind::Unsafe,
     }
@@ -50,7 +51,18 @@ impl Rule for NoVar {
 
     fn run(ctx: &RuleContext<Self>) -> Self::Signals {
         let declaration = ctx.query();
-        declaration.is_var().then_some(())
+        if declaration.is_var() {
+            let ts_global_declaratio = &declaration
+                .syntax()
+                .ancestors()
+                .find_map(TsGlobalDeclaration::cast);
+
+            if ts_global_declaratio.is_some() {
+                return None;
+            }
+            return Some(());
+        }
+        None
     }
 
     fn diagnostic(ctx: &RuleContext<Self>, _state: &Self::State) -> Option<RuleDiagnostic> {

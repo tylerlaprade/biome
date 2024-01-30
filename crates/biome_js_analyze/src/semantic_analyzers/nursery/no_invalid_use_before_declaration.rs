@@ -1,5 +1,5 @@
 use crate::{control_flow::AnyJsControlFlowRoot, semantic_services::SemanticServices};
-use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic};
+use biome_analyze::{context::RuleContext, declare_rule, Rule, RuleDiagnostic, RuleSource};
 use biome_console::markup;
 use biome_js_syntax::{
     binding_ext::{AnyJsBindingDeclaration, AnyJsIdentifierBinding},
@@ -37,7 +37,7 @@ declare_rule! {
     /// function f(a = b, b = 0) {}
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// f();
@@ -60,6 +60,7 @@ declare_rule! {
     pub(crate) NoInvalidUseBeforeDeclaration {
         version: "1.5.0",
         name: "noInvalidUseBeforeDeclaration",
+        source: RuleSource::EslintTypeScript("no-use-before-define"),
         recommended: false,
     }
 }

@@ -169,6 +169,7 @@ dependencies = [
  "biome_console",
  "biome_css_formatter",
  "biome_deserialize",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_flags",
  "biome_formatter",
@@ -306,6 +307,7 @@ name = "biome_deserialize"
 version = "0.4.0"
 dependencies = [
  "biome_console",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_json_parser",
  "biome_json_syntax",
@@ -316,6 +318,17 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "biome_deserialize_macros"
+version = "0.4.0"
+dependencies = [
+ "convert_case",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -368,6 +381,7 @@ version = "0.4.0"
 dependencies = [
  "biome_console",
  "biome_deserialize",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_js_parser",
  "biome_js_syntax",
@@ -421,6 +435,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "biome_html_factory"
+version = "0.4.0"
+dependencies = [
+ "biome_html_syntax",
+ "biome_rowan",
+]
+
+[[package]]
+name = "biome_html_syntax"
+version = "0.4.0"
+dependencies = [
+ "biome_rowan",
+]
+
+[[package]]
 name = "biome_js_analyze"
 version = "0.4.0"
 dependencies = [
@@ -429,6 +458,7 @@ dependencies = [
  "biome_console",
  "biome_control_flow",
  "biome_deserialize",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_js_factory",
  "biome_js_parser",
@@ -468,6 +498,7 @@ version = "0.4.0"
 dependencies = [
  "biome_console",
  "biome_deserialize",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_diagnostics_categories",
  "biome_formatter",
@@ -545,6 +576,7 @@ dependencies = [
  "biome_console",
  "biome_diagnostics",
  "biome_js_factory",
+ "biome_js_parser",
  "biome_rowan",
  "schemars",
  "serde",
@@ -711,6 +743,7 @@ version = "0.0.0"
 dependencies = [
  "biome_console",
  "biome_deserialize",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_json_parser",
  "biome_json_syntax",
@@ -753,6 +786,7 @@ dependencies = [
  "biome_css_parser",
  "biome_css_syntax",
  "biome_deserialize",
+ "biome_deserialize_macros",
  "biome_diagnostics",
  "biome_flags",
  "biome_formatter",

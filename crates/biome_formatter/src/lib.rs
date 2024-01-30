@@ -46,35 +46,36 @@ use crate::group_id::UniqueGroupIdBuilder;
 use crate::prelude::TagKind;
 use std::fmt::Debug;
 
+use crate::builders::syntax_token_cow_slice;
+use crate::comments::{CommentStyle, Comments, SourceComment};
+pub use crate::diagnostics::{ActualStart, FormatError, InvalidDocumentError, PrintError};
 use crate::format_element::document::Document;
 #[cfg(debug_assertions)]
 use crate::printed_tokens::PrintedTokens;
 use crate::printer::{Printer, PrinterOptions};
+use crate::trivia::{format_skipped_token_trivia, format_trimmed_token};
 pub use arguments::{Argument, Arguments};
 use biome_deserialize::{
-    Deserializable, DeserializableValue, DeserializationDiagnostic, Text, TextNumber,
+    Deserializable, DeserializableValue, DeserializationDiagnostic, TextNumber,
+};
+use biome_deserialize_macros::Deserializable;
+use biome_deserialize_macros::Merge;
+use biome_rowan::{
+    Language, NodeOrToken, SyntaxElement, SyntaxNode, SyntaxResult, SyntaxToken, SyntaxTriviaPiece,
+    TextLen, TextRange, TextSize, TokenAtOffset,
 };
 pub use buffer::{
     Buffer, BufferExtensions, BufferSnapshot, Inspect, PreambleBuffer, RemoveSoftLinesBuffer,
     VecBuffer,
 };
 pub use builders::BestFitting;
-use token::string::Quote;
-
-use crate::builders::syntax_token_cow_slice;
-use crate::comments::{CommentStyle, Comments, SourceComment};
-pub use crate::diagnostics::{ActualStart, FormatError, InvalidDocumentError, PrintError};
-use crate::trivia::{format_skipped_token_trivia, format_trimmed_token};
-use biome_rowan::{
-    Language, NodeOrToken, SyntaxElement, SyntaxNode, SyntaxResult, SyntaxToken, SyntaxTriviaPiece,
-    TextLen, TextRange, TextSize, TokenAtOffset,
-};
 pub use format_element::{normalize_newlines, FormatElement, LINE_TERMINATORS};
 pub use group_id::GroupId;
 pub use source_map::{TransformSourceMap, TransformSourceMapBuilder};
 use std::marker::PhantomData;
 use std::num::ParseIntError;
 use std::str::FromStr;
+use token::string::Quote;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 #[cfg_attr(
@@ -126,7 +127,7 @@ impl std::fmt::Display for IndentStyle {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
+#[derive(Clone, Copy, Debug, Deserializable, Eq, Hash, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
@@ -195,27 +196,6 @@ impl std::fmt::Display for LineEnding {
     }
 }
 
-impl Deserializable for LineEnding {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        let value_text = Text::deserialize(value, name, diagnostics)?;
-        if let Ok(value) = value_text.parse::<Self>() {
-            Some(value)
-        } else {
-            const ALLOWED_VARIANTS: &[&str] = &["lf", "crlf", "cr"];
-            diagnostics.push(DeserializationDiagnostic::new_unknown_value(
-                &value_text,
-                value.range(),
-                ALLOWED_VARIANTS,
-            ));
-            None
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serde",
@@ -246,7 +226,7 @@ impl From<u8> for IndentWidth {
 /// Validated value for the `line_width` formatter options
 ///
 /// The allowed range of values is 1..=320
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
@@ -357,7 +337,7 @@ impl From<LineWidth> for u16 {
     }
 }
 
-#[derive(Debug, Default, Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default, Deserializable, Eq, Hash, Merge, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema),
@@ -440,28 +420,6 @@ impl From<QuoteStyle> for Quote {
         match quote {
             QuoteStyle::Double => Self::Double,
             QuoteStyle::Single => Self::Single,
-        }
-    }
-}
-
-impl Deserializable for QuoteStyle {
-    fn deserialize(
-        value: &impl DeserializableValue,
-        name: &str,
-        diagnostics: &mut Vec<DeserializationDiagnostic>,
-    ) -> Option<Self> {
-        const ALLOWED_VARIANTS: &[&str] = &["double", "single"];
-        match Text::deserialize(value, name, diagnostics)?.text() {
-            "double" => Some(QuoteStyle::Double),
-            "single" => Some(QuoteStyle::Single),
-            unknown_variant => {
-                diagnostics.push(DeserializationDiagnostic::new_unknown_value(
-                    unknown_variant,
-                    value.range(),
-                    ALLOWED_VARIANTS,
-                ));
-                None
-            }
         }
     }
 }
@@ -1772,4 +1730,52 @@ where
 pub struct FormatStateSnapshot {
     #[cfg(debug_assertions)]
     printed_tokens: printed_tokens::PrintedTokensSnapshot,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LineWidth;
+    use biome_deserialize::json::deserialize_from_json_str;
+    use biome_deserialize_macros::Deserializable;
+    use biome_diagnostics::Error;
+
+    #[test]
+    fn test_out_of_range_line_width() {
+        #[derive(Debug, Default, Deserializable, Eq, PartialEq)]
+        struct TestConfig {
+            line_width: LineWidth,
+        }
+
+        struct DiagnosticPrinter<'a> {
+            diagnostics: &'a [Error],
+        }
+
+        impl<'a> DiagnosticPrinter<'a> {
+            fn new(diagnostics: &'a [Error]) -> Self {
+                Self { diagnostics }
+            }
+        }
+
+        impl<'a> std::fmt::Display for DiagnosticPrinter<'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                for diagnostic in self.diagnostics {
+                    diagnostic.description(f)?;
+                }
+                Ok(())
+            }
+        }
+
+        let source = r#"{ "lineWidth": 500 }"#;
+        let deserialized = deserialize_from_json_str::<TestConfig>(source, Default::default(), "");
+        assert_eq!(
+            format!("{}", DiagnosticPrinter::new(deserialized.diagnostics())),
+            "The number should be an integer between 1 and 320."
+        );
+        assert_eq!(
+            deserialized.into_deserialized().unwrap(),
+            TestConfig {
+                line_width: LineWidth(80)
+            }
+        );
+    }
 }

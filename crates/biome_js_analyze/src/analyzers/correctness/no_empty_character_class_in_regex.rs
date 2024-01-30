@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic};
+use biome_analyze::{context::RuleContext, declare_rule, Ast, Rule, RuleDiagnostic, RuleSource};
 use biome_console::markup;
 use biome_js_syntax::JsRegexLiteralExpression;
 use biome_rowan::{TextRange, TextSize};
@@ -11,8 +11,6 @@ declare_rule! {
     /// Empty character classes don't match anything.
     /// In contrast, negated empty classes match any character.
     /// They are often the result of a typing mistake.
-    ///
-    /// Source: https://eslint.org/docs/latest/rules/no-empty-character-class/
     ///
     /// ## Examples
     ///
@@ -26,7 +24,7 @@ declare_rule! {
     /// /^a[^]/.test("ax"); // true
     /// ```
     ///
-    /// ## Valid
+    /// ### Valid
     ///
     /// ```js
     /// /^a[xy]/.test("ay"); // true
@@ -43,6 +41,7 @@ declare_rule! {
     pub(crate) NoEmptyCharacterClassInRegex {
         version: "1.3.0",
         name: "noEmptyCharacterClassInRegex",
+        source: RuleSource::Eslint("no-empty-character-class"),
         recommended: true,
     }
 }
@@ -63,7 +62,8 @@ impl Rule for NoEmptyCharacterClassInRegex {
         let trimmed_text = pattern.text();
         let mut class_start_index = None;
         let mut is_negated_class = false;
-        let mut enumerated_char_iter = trimmed_text.chars().enumerate();
+        // We use `char_indices` to get the byte index of every character
+        let mut enumerated_char_iter = trimmed_text.char_indices();
         while let Some((i, ch)) = enumerated_char_iter.next() {
             match ch {
                 '\\' => {

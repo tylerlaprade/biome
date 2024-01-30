@@ -4,19 +4,21 @@ use crate::commands::{get_stdin, validate_configuration_diagnostics};
 use crate::{
     execute_mode, setup_cli_subscriber, CliDiagnostic, CliSession, Execution, TraversalMode,
 };
-use biome_service::configuration::organize_imports::OrganizeImports;
+use biome_deserialize::Merge;
+use biome_service::configuration::organize_imports::PartialOrganizeImports;
 use biome_service::configuration::{
-    load_configuration, FormatterConfiguration, LinterConfiguration, LoadedConfiguration,
+    load_configuration, LoadedConfiguration, PartialFormatterConfiguration,
+    PartialLinterConfiguration,
 };
 use biome_service::workspace::{FixFileMode, UpdateSettingsParams};
-use biome_service::{Configuration, MergeWith};
+use biome_service::PartialConfiguration;
 use std::ffi::OsString;
 
 pub(crate) struct CheckCommandPayload {
     pub(crate) apply: bool,
     pub(crate) apply_unsafe: bool,
     pub(crate) cli_options: CliOptions,
-    pub(crate) configuration: Option<Configuration>,
+    pub(crate) configuration: Option<PartialConfiguration>,
     pub(crate) paths: Vec<OsString>,
     pub(crate) stdin_file_path: Option<String>,
     pub(crate) formatter_enabled: Option<bool>,
@@ -75,7 +77,7 @@ pub(crate) fn check(
 
     let formatter = fs_configuration
         .formatter
-        .get_or_insert_with(FormatterConfiguration::default);
+        .get_or_insert_with(PartialFormatterConfiguration::default);
 
     if formatter_enabled.is_some() {
         formatter.enabled = formatter_enabled;
@@ -83,7 +85,7 @@ pub(crate) fn check(
 
     let linter = fs_configuration
         .linter
-        .get_or_insert_with(LinterConfiguration::default);
+        .get_or_insert_with(PartialLinterConfiguration::default);
 
     if linter_enabled.is_some() {
         linter.enabled = linter_enabled;
@@ -91,13 +93,22 @@ pub(crate) fn check(
 
     let organize_imports = fs_configuration
         .organize_imports
-        .get_or_insert_with(OrganizeImports::default);
+        .get_or_insert_with(PartialOrganizeImports::default);
 
     if organize_imports_enabled.is_some() {
         organize_imports.enabled = organize_imports_enabled;
     }
 
-    fs_configuration.merge_with(configuration);
+    if let Some(mut configuration) = configuration {
+        if let Some(linter) = configuration.linter.as_mut() {
+            // Don't overwrite rules from the CLI configuration.
+            // Otherwise, rules that are disabled in the config file might
+            // become re-enabled due to the defaults included in the CLI
+            // configuration.
+            linter.rules = None;
+        }
+        fs_configuration.merge_with(configuration);
+    }
 
     // check if support of git ignore files is enabled
     let vcs_base_path = configuration_path.or(session.app.fs.working_directory());
