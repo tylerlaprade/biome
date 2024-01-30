@@ -8,7 +8,7 @@ use crate::utils::{into_lsp_error, panic_to_lsp_error};
 use crate::{handlers, requests};
 use biome_console::markup;
 use biome_diagnostics::panic::PanicError;
-use biome_fs::{FileSystem, ConfigName, OsFileSystem, BIOME_JSON, ROME_JSON};
+use biome_fs::{ConfigName, FileSystem, OsFileSystem, ROME_JSON};
 use biome_service::workspace::{RageEntry, RageParams, RageResult};
 use biome_service::{workspace, DynRef, Workspace};
 use futures::future::ready;
