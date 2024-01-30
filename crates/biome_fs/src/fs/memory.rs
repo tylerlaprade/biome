@@ -9,7 +9,7 @@ use std::sync::Arc;
 use biome_diagnostics::{Error, Severity};
 use parking_lot::{lock_api::ArcMutexGuard, Mutex, RawMutex, RwLock};
 
-use crate::fs::OpenOptions;
+use crate::fs::{ForEachPath, OpenOptions};
 use crate::{FileSystem, RomePath, TraversalContext, TraversalScope};
 
 use super::{BoxedTraversal, ErrorKind, File, FileSystemDiagnostic};
@@ -170,7 +170,6 @@ impl FileSystem for MemoryFileSystem {
             version: 0,
         }))
     }
-
     fn traversal<'scope>(&'scope self, func: BoxedTraversal<'_, 'scope>) {
         func(&MemoryTraversalScope { fs: self })
     }
@@ -192,6 +191,14 @@ impl FileSystem for MemoryFileSystem {
         let cb = cb_guard.take().unwrap();
 
         Ok(cb())
+    }
+
+    fn for_each_path(&self, func: ForEachPath) {
+        let files = self.files.0.read();
+
+        for file in files.keys() {
+            func(file.clone())
+        }
     }
 }
 

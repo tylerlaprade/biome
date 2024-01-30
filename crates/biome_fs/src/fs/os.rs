@@ -1,14 +1,18 @@
 //! Implementation of the [FileSystem] and related traits for the underlying OS filesystem
-use super::{BoxedTraversal, ErrorKind, File, FileSystemDiagnostic};
+use super::{BoxedTraversal, ErrorKind, File, FileSystemDiagnostic, ForEachPath};
 use crate::fs::OpenOptions;
 use crate::{
     fs::{TraversalContext, TraversalScope},
     FileSystem, RomePath,
 };
 use biome_diagnostics::{adapters::IoError, DiagnosticExt, Error, Severity};
+use dashmap::DashSet;
+use parking_lot::{Mutex, RwLock};
 use rayon::{scope, Scope};
+use rustc_hash::FxHashSet;
 use std::ffi::OsStr;
 use std::fs::{DirEntry, FileType};
+use std::panic::AssertUnwindSafe;
 use std::process::Command;
 use std::{
     env, fs,
@@ -20,11 +24,17 @@ use std::{
 const MAX_SYMLINK_DEPTH: u8 = 3;
 
 /// Implementation of [FileSystem] that directly calls through to the underlying OS
-pub struct OsFileSystem(pub Option<PathBuf>);
+pub struct OsFileSystem {
+    working_directory: Option<PathBuf>,
+    paths: AssertUnwindSafe<RwLock<DashSet<PathBuf>>>,
+}
 
 impl Default for OsFileSystem {
     fn default() -> Self {
-        Self(env::current_dir().ok())
+        Self {
+            working_directory: env::current_dir().ok(),
+            paths: Default::default(),
+        }
     }
 }
 
@@ -46,8 +56,16 @@ impl FileSystem for OsFileSystem {
         })
     }
 
+    fn for_each_path(&self, func: ForEachPath) {
+        let paths = self.paths.0.read();
+        let iter = paths.iter();
+        for path in iter {
+            func(path.as_path().to_path_buf())
+        }
+    }
+
     fn working_directory(&self) -> Option<PathBuf> {
-        self.0.clone()
+        self.working_directory.clone()
     }
 
     fn path_exists(&self, path: &Path) -> bool {
@@ -288,6 +306,7 @@ fn handle_dir_entry<'scope>(
         if ctx.can_handle(&rome_path) {
             scope.spawn(move |_| {
                 ctx.handle_file(&path);
+                // ctx.store_file(&path);
             });
         }
     }

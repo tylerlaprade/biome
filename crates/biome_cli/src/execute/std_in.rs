@@ -44,7 +44,7 @@ pub(crate) fn run<'a>(
             console.append(markup! {{content}});
             return Ok(());
         };
-        if file_features.supports_for(&FeatureName::Format) {
+        if file_features.supports_format() {
             workspace.open_file(OpenFileParams {
                 path: rome_path.clone(),
                 version: 0,
@@ -99,12 +99,11 @@ pub(crate) fn run<'a>(
         };
 
         if let Some(fix_file_mode) = mode.as_fix_file_mode() {
-            if file_features.supports_for(&FeatureName::Lint) {
+            if file_features.supports_lint() {
                 let fix_file_result = workspace.fix_file(FixFileParams {
                     fix_file_mode: *fix_file_mode,
                     path: rome_path.clone(),
-                    should_format: mode.is_check()
-                        && file_features.supports_for(&FeatureName::Format),
+                    should_format: mode.is_check() && file_features.supports_format(),
                 })?;
                 if fix_file_result.code != new_content {
                     version += 1;
@@ -117,7 +116,7 @@ pub(crate) fn run<'a>(
                 }
             }
 
-            if file_features.supports_for(&FeatureName::OrganizeImports) && mode.is_check() {
+            if file_features.supports_organize_imports() && mode.is_check() {
                 let result = workspace.organize_imports(OrganizeImportsParams {
                     path: rome_path.clone(),
                 })?;
@@ -142,7 +141,7 @@ pub(crate) fn run<'a>(
             diagnostics.extend(result.diagnostics);
         }
 
-        if file_features.supports_for(&FeatureName::Format) && mode.is_check() {
+        if file_features.supports_format() && mode.is_check() {
             let printed = workspace.format_file(FormatFileParams {
                 path: rome_path.clone(),
             })?;
